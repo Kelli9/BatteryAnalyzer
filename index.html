@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Batterie-Analyse für PV-Anlagen mit Heimspeicher: Schätzung aus eigenen Messdaten, läuft vollständig im Browser." />
+    <title>Batterie-Analyse</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀</text></svg>" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand"><span class="logo">☀</span><h1>Batterie-Analyse</h1></div>
+        <div class="segmented" id="tab" role="tablist">
+          <button type="button" role="tab" data-value="data">Daten</button>
+          <button type="button" role="tab" data-value="analysis">Analyse</button>
+          <button type="button" role="tab" data-value="battery">
+            <span class="label-long">Batterie-Zustand</span><span class="label-short">Batterie</span>
+          </button>
+          <button type="button" role="tab" data-value="method">Methode</button>
+        </div>
+        <div class="data-info">
+          <span class="muted" id="data-range"></span>
+        </div>
+      </header>
+
+      <!-- Estimate notice: on every screen -->
+      <p class="estimate">
+        <svg class="note-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></svg>
+        <span>
+          <strong>Nur eine Schätzung.</strong> Alle Ergebnisse (Ersparnis, Autarkie, Simulation anderer
+          Batteriegrössen, Batterie-Zustand) werden mit einem vereinfachten Modell aus den Messdaten berechnet. Sie
+          können deutlich von der Wirklichkeit abweichen und Fehler enthalten. Ohne Gewähr; kein Ersatz für fachliche
+          Beratung und keine Grundlage für Kauf- oder Investitionsentscheide.
+        </span>
+      </p>
+
+      <!-- View "Daten": load a file or choose a stored dataset (files never leave the browser), settings -->
+      <div class="tab-page" id="page-data">
+        <section class="card">
+          <h2>Daten laden</h2>
+          <p class="muted small">
+            Die Datei wird nur in diesem Browser gelesen und ausgewertet – sie wird nicht hochgeladen.
+          </p>
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept=".zip,.csv" />
+            <span class="drop-title">ZIP- oder CSV-Datei hierher ziehen oder <u>auswählen</u></span>
+            <span class="muted small" id="supported-formats"></span>
+          </label>
+          <p class="muted small" id="start-status" role="status"></p>
+          <div class="saved" id="saved" hidden>
+            <h3>Im Browser gespeichert</h3>
+            <ul class="ds-list" id="saved-list"></ul>
+            <button type="button" class="link-btn" id="forget">Alle gespeicherten Daten löschen</button>
+          </div>
+          <details class="hints">
+            <summary>Hinweise zu Speicherung und Datenschutz</summary>
+            <ul>
+              <li>Die Seite kann keine Daten an einen Server senden.</li>
+              <li>Geladene Dateien bleiben lokal im Browser gespeichert, damit sie beim nächsten Besuch wieder verfügbar
+                sind; «Löschen» entfernt sie.</li>
+              <li>Die Seite setzt keine Cookies und verwendet kein Tracking.</li>
+              <li>Die Seite liegt auf GitHub Pages; GitHub speichert beim Aufruf aus Sicherheitsgründen die IP-Adresse
+                (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+                target="_blank" rel="noopener noreferrer">Datenschutzerklärung von GitHub</a>).</li>
+            </ul>
+          </details>
+        </section>
+
+        <section class="card settings" id="settings">
+          <h2>Batterie-Einstellungen</h2>
+          <p class="muted small">
+            Reale Batterie: nominale Kapazität der vorhandenen Batterie in ganzen kWh. Wirkungsgrad und SOC min/max
+            gelten nur für die Zusatzkapazität einer grösseren Batterie.
+          </p>
+          <div class="adv-grid">
+            <label>Reale Batterie (kWh)<input type="number" id="real" min="1" max="40" step="1" /></label>
+            <label>Wirkungsgrad (%)<input type="number" id="eff" min="50" max="100" step="1" /></label>
+            <label>SOC min Zusatz (%)<input type="number" id="socmin" min="0" max="50" step="1" /></label>
+            <label>SOC max Zusatz (%)<input type="number" id="socmax" min="50" max="100" step="1" /></label>
+          </div>
+          <details class="hints">
+            <summary>Hinweise zur Simulation grösserer und kleinerer Batterien</summary>
+            <ul>
+              <li>Grössere Batterie: Die Zusatzkapazität wird als Erweiterung der realen Batterie simuliert. Sie lädt nur
+                Überschuss, der eingespeist wurde, während die reale Batterie voll war (≥ 97 %), und deckt nur Netzbezug
+                des Hauses, während sie leer war (≤ 5 %).</li>
+              <li>Der Wirkungsgrad wird beim Entladen verrechnet (die reale Batterie lädt nahezu verlustfrei).</li>
+              <li>Kleinere Batterie (bis 0 kWh = keine): Sie folgt dem gemessenen Ladezustand der realen und weicht nur
+                ab, wenn sie voll oder leer ist: Nicht speicherbarer Überschuss wird eingespeist, nicht lieferbare
+                Energie aus dem Netz bezogen. Sie ist aus den Messdaten kalibriert.</li>
+            </ul>
+          </details>
+        </section>
+
+        <section class="card settings">
+          <h2>Leistung</h2>
+          <p class="muted small">
+            Vorgabe: Beispielwerte – bitte die Werte des eigenen Speichers bzw. Wechselrichters für die jeweilige Grösse
+            eintragen (Datenblatt).
+          </p>
+          <div class="power-steps" id="power-steps"></div>
+          <details class="hints">
+            <summary>Hinweise zu Stufen und Begrenzung</summary>
+            <ul>
+              <li>Maximale Lade- und Entladeleistung der ganzen Batterie (reale Batterie und Zusatzkapazität zusammen), in
+                Stufen nach der Gesamtgrösse: Eine Stufe gilt ab ihrer Grösse bis zur nächsten, die kleinste auch
+                darunter.</li>
+              <li>Die Leistung begrenzt nur die Zusatzkapazität einer grösseren Batterie: Was die reale Batterie im selben
+                Intervall schon lädt oder entlädt, geht davon ab.</li>
+            </ul>
+          </details>
+        </section>
+
+        <section class="card settings">
+          <h2>Tarif</h2>
+          <p class="muted small">
+            Vorgabe: runde Beispielwerte inkl. MWST – bitte die Preise des eigenen Elektrizitätswerks eintragen
+            (Rechnung oder Tarifblatt).
+          </p>
+          <div class="periods" id="tariff"></div>
+          <details class="hints">
+            <summary>Hinweise zu Perioden, Hochtarif und Grundgebühr</summary>
+            <ul>
+              <li>Eine Periode pro Preisstand; «Von» und «Bis» zählen beide dazu. Tage ausserhalb aller Perioden
+                erhalten die Preise der nächstgelegenen.</li>
+              <li>Hochtarif gilt in den angegebenen Zeiten, getrennt für Montag–Freitag, Samstag und Sonntag (Feiertage
+                zählen wie gewöhnliche Wochentage), sonst Niedertarif.</li>
+              <li>Leere Zeiten: ganzer Tag Niedertarif; «bis» 00:00 heisst bis Mitternacht, gleiche Zeiten ganzer Tag
+                Hochtarif.</li>
+              <li>Die Grundgebühr (Grund- und Messpreis) zählt nur zu den Stromkosten netto, nicht zur Ersparnis; 0 lässt
+                sie weg.</li>
+            </ul>
+          </details>
+        </section>
+      </div>
+
+      <!-- Tab "Analyse": everything follows the selected period and battery size -->
+      <div class="tab-page" id="page-analysis" hidden>
+        <div class="toolbar card">
+          <div class="segmented" id="period">
+            <button type="button" data-value="day">Tag</button>
+            <button type="button" data-value="week">Woche</button>
+            <button type="button" data-value="month">Monat</button>
+            <button type="button" data-value="year">Jahr</button>
+          </div>
+          <div class="nav">
+            <button type="button" class="nav-btn" id="prev" title="Zurück">◀</button>
+            <div class="period-label" id="period-label"></div>
+            <button type="button" class="nav-btn" id="next" title="Weiter">▶</button>
+            <input type="date" id="date" class="datepicker" aria-label="Datum" />
+          </div>
+        </div>
+
+        <div class="card controls">
+          <div class="size-ctl">
+            <label class="ctl-label" for="capacity">Batteriegrösse: <output id="capacity-value"></output> kWh
+              <span class="muted">(Ist <span id="real-value"></span> kWh)</span></label>
+            <input type="range" id="capacity" min="0" max="40" step="1" />
+            <div class="marks" aria-hidden="true">
+              <span style="--v: 0">0</span><span style="--v: 5">5</span><span style="--v: 10">10</span>
+              <span style="--v: 15">15</span><span style="--v: 20">20</span><span style="--v: 25">25</span>
+              <span style="--v: 30">30</span><span style="--v: 35">35</span><span style="--v: 40">40</span>
+            </div>
+          </div>
+          <p class="muted small">
+            Reale Batterie, Leistung und Tarif:
+            <button type="button" class="link-btn" id="to-settings">Einstellungen unter «Daten»</button>
+          </p>
+        </div>
+
+        <div class="tiles" id="tiles"></div>
+        <div class="card"><div class="chart" id="main"></div></div>
+        <div class="card">
+          <h2 id="cost-title"></h2>
+          <div class="chart" id="cost"></div>
+        </div>
+        <div class="card">
+          <h2 id="curve-title"></h2>
+          <div class="chart" id="curve"></div>
+        </div>
+        <details class="card"><summary>Tabelle</summary><div id="table"></div></details>
+      </div>
+
+      <!-- Tab "Batterie-Zustand": the real battery over the whole data range -->
+      <div class="tab-page" id="page-battery" hidden>
+        <div class="card">
+          <h2>Batteriekapazität pro Vollzyklus (kWh AC)</h2>
+          <p class="muted small">
+            Punkte: einzelne Vollzyklen der realen Batterie, Laden von ≤ 5 % auf ≥ 99 % (innert 12 h) und Entladen
+            zurück (innert 24 h), jeweils auf 0–100 % hochgerechnet; nur Zyklen ohne nennenswerten Fluss in
+            Gegenrichtung. Linien: 60-Tage-Median. Misst die nutzbare Energie direkt in kWh, unabhängig von der
+            SOC-Skala: Laden enthält die Ladeverluste, Entladen die Entladeverluste. Ein Absinken über die Zeit zeigt
+            Kapazitätsverlust (Alterung).
+          </p>
+          <div class="chart" id="cycles"></div>
+        </div>
+        <div class="card">
+          <h2>Batterie-Wirkungsgrad pro Tag (gemessen am Ladezustand)</h2>
+          <p class="muted small">
+            Roundtrip: Anteil der geladenen Energie (AC), der beim Entladen wieder herauskommt. Punkte: einzelne Tage
+            (nur Tage mit ≥ 2 kWh Ladung und Entladung), Linie: 30-Tage-Mittel gewichtet nach Energie.
+          </p>
+          <div class="chart" id="efficiency"></div>
+        </div>
+      </div>
+
+      <!-- View "Methode": how the simulation works (works without data) -->
+      <div class="tab-page" id="page-method" hidden>
+        <!-- include:method -->
+      </div>
+
+      <!-- The first paragraph repeats the "Daten" view's privacy note, so it is hidden there (see style.css) -->
+      <footer class="muted">
+        <p class="footer-repeat">
+          Alle Berechnungen laufen lokal in diesem Browser; die Dateien werden nicht übertragen. Die Seite liegt auf
+          GitHub Pages, GitHub speichert beim Aufruf die IP-Adresse
+          (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+          target="_blank" rel="noopener noreferrer">Datenschutzerklärung von GitHub</a>).
+        </p>
+        <p>
+          Unabhängiges Projekt, nicht verbunden mit den Herstellern der unterstützten Systeme und nicht von ihnen 
+          unterstützt; genannte Marken gehören ihren Inhabern.
+          · <a href="THIRD-PARTY-LICENSES.txt">Lizenzen</a>
+        </p>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

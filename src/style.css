@@ -1,0 +1,260 @@
+:root {
+  color-scheme: light;
+  --page: #f3f4f2;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --hairline: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.10);
+  --accent: #eda100;
+  --accent-ink: #0b0b0b;
+  --good: #006300;
+  --bad: #b02a2a;
+  --extra: #1f8fbf;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #1b1c20;
+    --surface: #25262b;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --hairline: #33353b;
+    --border: rgba(255, 255, 255, 0.10);
+    --accent: #c98500;
+    --accent-ink: #0b0b0b;
+    --good: #0ca30c;
+    --bad: #e66767;
+    --extra: #2e95bd;
+  }
+}
+
+* { box-sizing: border-box; }
+/* Always reserve the scrollbar's space, so short and long screens line up exactly */
+html { scrollbar-gutter: stable; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+.page { max-width: 1200px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.tab-page { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; margin: 8px 0 0; }
+h2 { font-size: 15px; font-weight: 600; margin: 4px 0 0; }
+button { font: inherit; }
+.link-btn { background: none; border: none; color: var(--extra); cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* Header: brand | view switcher (always centred) | data range; on narrow screens the switcher gets its own row */
+.topbar { display: grid; grid-template-columns: 1fr auto 1fr; grid-template-areas: "brand tabs info";
+          align-items: center; gap: 8px 16px; min-height: 40px; }
+.brand { grid-area: brand; display: flex; align-items: center; gap: 10px; }
+.topbar .segmented { grid-area: tabs; }
+.brand h1 { font-size: 20px; margin: 0; font-weight: 600; }
+.logo { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
+        background: var(--accent); color: var(--accent-ink); font-size: 18px; }
+.data-info { grid-area: info; justify-self: end; display: flex; gap: 12px; align-items: center; }
+.invisible { visibility: hidden; }
+.label-short { display: none; }
+
+/* Segmented switch (period, tabs); the selected segment keeps the font weight, so widths never change */
+.segmented { display: inline-flex; background: var(--page); border-radius: 10px; padding: 3px; gap: 2px; }
+.segmented button { padding: 6px 16px; border-radius: 8px; cursor: pointer; color: var(--ink-2); background: none;
+                    border: none; user-select: none; }
+.segmented button:hover { color: var(--ink); }
+.segmented button[aria-selected="true"] { background: var(--surface); color: var(--ink);
+                                          box-shadow: 0 1px 3px var(--border); }
+.segmented button:disabled { color: var(--muted); opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 960px) {
+  .topbar { grid-template-columns: 1fr auto; grid-template-areas: "brand info" "tabs tabs"; }
+  .topbar .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+}
+
+/* Loading data: drop zone (dashed like the "add" buttons), status line */
+.dropzone { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px; padding: 20px 16px;
+            text-align: center; cursor: pointer; background: var(--page); border: 1px dashed var(--muted);
+            border-radius: 8px; }
+.dropzone:hover { border-color: var(--ink-2); }
+.dropzone.over { border-color: var(--extra); background: var(--hairline); }
+.dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.dropzone .small { margin: 0; }
+.drop-title { font-weight: 600; }
+.drop-title u { color: var(--extra); }
+#start-status:empty { display: none; }
+.error { color: var(--bad); }
+
+/* Datasets stored in the browser: click a row to open it, trash button to delete it */
+.saved { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 10px; }
+.saved h3 { font-size: 13px; font-weight: 600; margin: 0; color: var(--ink-2); }
+.ds-list { list-style: none; margin: 0; padding: 0; width: 100%; border: 1px solid var(--border); border-radius: 8px;
+           overflow: hidden; }
+.ds-list li { display: flex; background: var(--page); }
+.ds-list li + li { border-top: 1px solid var(--hairline); }
+.ds-list button { border: none; background: none; color: inherit; cursor: pointer; }
+.ds-list button:hover { background: var(--hairline); }
+.ds-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; text-align: left; }
+.ds-name { font-weight: 600; overflow-wrap: anywhere; }
+.ds-current { font-weight: 400; font-size: 12px; color: var(--extra); }
+.ds-info { font-size: 12px; color: var(--muted); }
+.ds-list .ds-del { padding: 0 14px; border-left: 1px solid var(--hairline); color: var(--muted); }
+.ds-list .ds-del:hover { color: var(--bad); }
+.ds-del svg, .period-del svg, .step-del svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2;
+              stroke-linecap: round; stroke-linejoin: round; }
+
+/* Estimate notice under the header (every screen): icon column + text */
+.note-icon { width: 16px; height: 16px; margin-top: 1px; fill: none; stroke: var(--muted); stroke-width: 2;
+             stroke-linecap: round; stroke-linejoin: round; }
+.estimate { display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; margin: 0;
+            padding: 8px 12px; background: var(--surface); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent); border-radius: 8px; color: var(--ink-2); font-size: 12px;
+            line-height: 1.5; }
+.estimate strong { color: var(--ink); }
+.estimate .note-icon { stroke: var(--accent); }
+
+/* Period tabs + date navigation */
+.toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nav-btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 8px;
+           width: 34px; height: 34px; cursor: pointer; font-size: 12px; }
+.nav-btn:hover { background: var(--page); }
+.datepicker { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: transparent;
+              color: var(--ink); font: inherit; }
+.period-label { min-width: 200px; text-align: center; font-weight: 600; font-size: 15px; }
+
+/* Battery size */
+.controls { display: flex; flex-direction: column; gap: 6px; }
+.ctl-label { font-weight: 600; display: block; margin-bottom: 4px; }
+.size-ctl { --thumb: 16px; --max: 40; } /* native thumb width; slider max */
+.size-ctl input[type="range"] { display: block; width: 100%; margin: 4px 0; accent-color: var(--extra); }
+/* Each mark sits under the thumb centre at its value: the centre runs from half a thumb to the width minus that */
+.marks { position: relative; height: 1.4em; color: var(--muted); font-size: 12px; }
+.marks span { position: absolute; left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--v) / var(--max));
+              transform: translateX(-50%); }
+details.card summary { cursor: pointer; color: var(--ink-2); font-weight: 600; }
+
+/* Settings ("Daten" view): labelled inputs in a grid */
+.adv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 10px; }
+.adv-grid label, .period label, .ht-day { display: flex; flex-direction: column; gap: 4px;
+                                         color: var(--ink-2); font-size: 12px; }
+.adv-grid input, .period input, .power-grid input { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+                                                    background: var(--page); color: var(--ink); font: inherit;
+                                                    font-size: 14px; width: 100%; min-width: 0; }
+
+/* Tariff: one block per period (dates, prices, high tariff times), then "add" and notes on the coverage */
+.periods { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 10px; }
+.period { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--page);
+          border: 1px solid var(--border); border-radius: 8px; }
+.period input { background: var(--surface); }
+.period-head { display: flex; align-items: flex-end; gap: 10px; }
+.period-head label { width: 160px; }
+.period-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.period-grid:has(.ht-day) { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.ht-times { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.period-del, .step-del { margin-left: auto; padding: 8px; border: none; border-radius: 6px; background: none;
+                         color: var(--muted); cursor: pointer; }
+.period-del:hover:enabled, .step-del:hover:enabled { color: var(--bad); background: var(--hairline); }
+.period-del:disabled, .step-del:disabled { opacity: 0.35; cursor: not-allowed; }
+.add-btn { align-self: flex-start; padding: 6px 12px; border: 1px dashed var(--muted); border-radius: 8px;
+           background: none; color: var(--ink-2); cursor: pointer; }
+.add-btn:hover { color: var(--ink); border-color: var(--ink-2); }
+.tariff-issues, .power-issues { margin: 0; padding-left: 18px; color: var(--bad); line-height: 1.5; }
+.tariff-issues:empty, .power-issues:empty { display: none; }
+/* Explanations folded away under the inputs */
+.hints { margin-top: 10px; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.hints summary { width: fit-content; cursor: pointer; color: var(--muted); }
+.hints summary:hover { color: var(--ink-2); }
+.hints ul { margin: 6px 0 0; padding-left: 18px; }
+.hints li + li { margin-top: 2px; }
+
+/* Power: one row per step (start size, charge, discharge), then "add" and notes on shared starts */
+.power-steps { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 10px; }
+.power-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 6px 10px; align-items: center;
+              max-width: 560px; }
+.power-grid > span { align-self: end; color: var(--ink-2); font-size: 12px; }
+
+/* KPI tiles */
+.tiles { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.tile-hero { grid-row: span 3; border-left: 4px solid var(--extra); display: flex; flex-direction: column; justify-content: center; }
+.tile-label { color: var(--ink-2); font-size: 12px; }
+.tile-value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+.tile-value.hero { font-size: 40px; }
+.tile-value.saving { font-size: 24px; margin-top: 12px; }
+.unit { font-size: 13px; font-weight: 400; color: var(--muted); }
+.tile-sub { font-size: 12px; margin-top: 4px; }
+.delta.good { color: var(--good); font-weight: 600; }
+.delta.bad { color: var(--bad); font-weight: 600; }
+.was { color: var(--muted); }
+
+.chart { min-height: 120px; }
+.chart .placeholder { padding: 24px 0; }
+
+.data-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.data-table th, .data-table td { padding: 5px 8px; border-bottom: 1px solid var(--hairline); text-align: right; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table th { color: var(--ink-2); font-weight: 600; font-size: 12px; }
+details.card > div { overflow-x: auto; }
+
+/* Methode view: text, formulas and charts across the card */
+.method { line-height: 1.55; }
+.method p, .method ul, .method ol, .method dl { margin: 8px 0 0; color: var(--ink-2); }
+.method ul, .method ol { padding-left: 22px; }
+.method li + li { margin-top: 4px; }
+.method strong, .method em { color: var(--ink); }
+.method h3 { font-size: 13px; font-weight: 600; margin: 16px 0 0; }
+.method .chart { margin-top: 12px; }
+.method .chart-caption { font-size: 12px; color: var(--muted); }
+/* Display formulas start at the text's left edge (indented) instead of the card's centre; their parts
+   (one <math> each, see vite.config.ts) sit side by side and wrap on narrow screens */
+.formula { display: flex; flex-wrap: wrap; align-items: center; column-gap: 2.5em; row-gap: 6px; margin: 10px 0 0;
+           padding: 2px 0 2px 16px; overflow-x: auto; overflow-y: hidden; }
+.formula-table { display: block; max-width: 100%; overflow-x: auto; margin: 10px 0 0 16px; border-collapse: collapse; }
+.formula-table th { padding: 3px 16px 3px 0; text-align: left; font-weight: 400; color: var(--ink-2); white-space: nowrap; }
+.formula-table td { padding: 3px 0; }
+math { font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", math; font-size: 1.08em; }
+math[display="block"] { display: block; }
+.symbols { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13px; }
+.symbols dt { color: var(--ink); }
+.symbols dd { margin: 0; }
+.flow-diagram { margin: 12px 0 0; }
+.flow-diagram svg { display: block; width: 100%; max-width: 640px; height: auto; margin: 0 auto; }
+.fd-node rect { fill: var(--page); stroke: var(--border); }
+.fd-node text { fill: var(--ink); font-size: 14px; font-weight: 600; }
+.fd-label { fill: var(--ink-2); font-size: 12px; }
+.fd-pv, .fd-batt, .fd-grid { fill: none; stroke-width: 2; }
+.fd-pv { stroke: var(--accent); }
+.fd-batt { stroke: var(--extra); }
+.fd-grid { stroke: var(--bad); }
+.fd-head-pv { fill: var(--accent); }
+.fd-head-batt { fill: var(--extra); }
+.fd-head-grid { fill: var(--bad); }
+
+footer { display: flex; flex-direction: column; gap: 4px; max-width: 760px; margin: 4px auto 0; padding: 12px 0 16px;
+         border-top: 1px solid var(--hairline); font-size: 12px; line-height: 1.5; text-align: center; text-wrap: balance; }
+footer p { margin: 0; }
+footer a, .hints a { color: inherit; }
+/* On the start page the privacy note already says this */
+.page:has(> #page-data:not([hidden])) .footer-repeat { display: none; }
+
+@media (max-width: 600px) {
+  .formula { padding-left: 0; }
+  .formula-table { margin-left: 0; }
+  .topbar { grid-template-columns: 1fr; grid-template-areas: "brand" "tabs" "info"; }
+  .topbar .segmented button { padding: 6px 4px; }
+  .label-long { display: none; }
+  .label-short { display: inline; }
+  .data-info { justify-self: start; min-height: 1.2em; }
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .tile-hero { grid-row: auto; grid-column: span 2; }
+  .period-label { min-width: 0; flex: 1; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .period-head label { width: auto; flex: 1; }
+  .marks span:nth-child(even) { visibility: hidden; }
+}

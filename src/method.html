@@ -1,0 +1,296 @@
+<!--
+  Text of the "Methode" view, inserted into index.html at build time (vite.config.ts, methodPage).
+  Formulas: LaTeX in \( … \) (inline) and \[ … \] (display), rendered to MathML at build time.
+  <span data-param="…"> values are filled in from the code (src/ui/method.ts), so they match the calculation.
+  Charts (div.chart) are drawn by src/ui/method.ts from a fixed two-day sample with the app's own simulation.
+-->
+<section class="card method">
+  <h2>1. Überblick</h2>
+  <p>
+    Die Analyse rechnet die Anlage nicht von Grund auf neu. Sie geht von den Messwerten aus: Für jedes
+    15-Minuten-Intervall ist bekannt, was die reale Anlage produziert, verbraucht, in die Batterie geladen, aus ihr
+    entladen, aus dem Netz bezogen und eingespeist hat. Simuliert wird nur der <strong>Unterschied</strong>, den eine
+    andere Batteriegrösse gemacht hätte: Eine grössere Batterie hätte zusätzlichen Überschuss gespeichert und später
+    Netzbezug ersetzt, eine kleinere hätte weniger speichern können. Dieser Unterschied wird mit den Tarifen in Franken
+    umgerechnet.
+  </p>
+  <ol>
+    <li>Messdaten einlesen und den Netzfluss aus der Energiebilanz bestimmen (Abschnitt 2).</li>
+    <li>Die Energieflüsse der realen Anlage aufteilen (Abschnitt 3).</li>
+    <li>Den Unterschied einer grösseren (Abschnitt 4) oder kleineren Batterie (Abschnitt 5) simulieren.</li>
+    <li>Jedes Intervall mit dem Tarif bewerten (Abschnitt 6) und über den gewählten Zeitraum summieren
+      (Abschnitt 7).</li>
+  </ol>
+  <p>
+    Als Beispiel zeigen die Diagramme auf dieser Seite zwei Tage einer Anlage mit
+    <span data-param="sampleReal">8</span>&nbsp;kWh Batterie (<span data-param="exampleDates">15. und 16. August
+    2025</span>), berechnet mit genau dem Programmcode, den auch die Analyse verwendet.
+  </p>
+</section>
+
+<section class="card method">
+  <h2>2. Messdaten</h2>
+  <p>
+    Die Messdaten enthalten pro Intervall die mittlere Leistung in Watt für Verbrauch, Produktion, Batterie laden und
+    Batterie entladen sowie den Ladezustand der Batterie (SOC, in %). Aus einer mittleren Leistung wird die Energie im
+    Intervall:
+  </p>
+  <div class="formula">\[ E = \frac{P \cdot \Delta t}{1000} \quad \text{in kWh, mit } P \text{ in W und } \Delta t = 0.25\ \text{h} \]</div>
+  <p>
+    Der Netzfluss wird nicht vom Zähler übernommen (der fehlt in manchen Daten), sondern aus der Energiebilanz des
+    Hauses berechnet und in Bezug und Einspeisung aufgeteilt:
+  </p>
+  <div class="formula">\[ G_t = L_t - P_t + B^{+}_t - B^{-}_t, \qquad I_t = \max(G_t,\, 0), \qquad X_t = \max(-G_t,\, 0) \]</div>
+  <dl class="symbols">
+    <dt>\(P_t\)</dt><dd>Produktion der PV-Anlage im Intervall \(t\)</dd>
+    <dt>\(L_t\)</dt><dd>Verbrauch des Hauses (alle Verbraucher)</dd>
+    <dt>\(B^{+}_t,\ B^{-}_t\)</dt><dd>Laden und Entladen der realen Batterie (AC-Seite)</dd>
+    <dt>\(s_t\)</dt><dd>Ladezustand der realen Batterie in %</dd>
+    <dt>\(G_t,\ I_t,\ X_t\)</dt><dd>Netzfluss (positiv = Bezug), Netzbezug und Einspeisung</dd>
+  </dl>
+  <p>
+    Fehlende oder negative Werte der Flüsse zählen als 0, Lücken im Ladezustand werden mit dem letzten bekannten Wert
+    gefüllt. Alle Formeln auf dieser Seite rechnen mit diesen Leistungen; Energie entsteht durch Multiplikation mit
+    \(\Delta t\).
+  </p>
+  <div class="chart" id="method-flows"></div>
+  <p class="chart-caption">
+    Die beiden Beispieltage wie in der Tagesansicht der Analyse: pro 15 Minuten die Produktion (gelb) neben dem
+    Verbrauch, aufgeteilt in Eigenversorgung (blau) und Netzbezug (rot), darunter der Inhalt der realen Batterie. Über
+    Mittag lädt die Batterie, bis sie voll ist, und der restliche Überschuss wird eingespeist; abends und nachts deckt
+    sie den Verbrauch. In der Nacht zum zweiten Tag ist sie gegen 1&nbsp;Uhr leer, und bis zum Morgen kommt der
+    Verbrauch aus dem Netz – diesen Bezug könnte eine grössere Batterie ersetzen (Abschnitt 4).
+  </p>
+</section>
+
+<section class="card method">
+  <h2>3. Energieflüsse der realen Anlage</h2>
+  <p>
+    Für Diagramme, Kennzahlen und Kosten wird jedes Intervall in sechs Flüsse aufgeteilt. Das Laden der Batterie wird
+    zuerst der PV-Anlage zugerechnet; nur was die Produktion nicht deckt, kam aus dem Netz.
+  </p>
+  <figure class="flow-diagram">
+    <svg viewBox="0 0 640 282" role="img" aria-label="Energieflüsse zwischen PV-Anlage, Batterie, Haus und Netz">
+      <defs>
+        <marker id="fd-arrow-pv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="fd-head-pv" /></marker>
+        <marker id="fd-arrow-batt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="fd-head-batt" /></marker>
+        <marker id="fd-arrow-grid" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="fd-head-grid" /></marker>
+      </defs>
+      <path class="fd-pv" d="M272 56 L114 182" marker-end="url(#fd-arrow-pv)" />
+      <path class="fd-pv" d="M320 56 L320 182" marker-end="url(#fd-arrow-pv)" />
+      <path class="fd-pv" d="M368 56 L526 182" marker-end="url(#fd-arrow-pv)" />
+      <path class="fd-batt" d="M150 205 L256 205" marker-end="url(#fd-arrow-batt)" />
+      <path class="fd-grid" d="M490 205 L384 205" marker-end="url(#fd-arrow-grid)" />
+      <path class="fd-grid" d="M550 226 C550 258 90 258 90 230" marker-end="url(#fd-arrow-grid)" />
+      <text class="fd-label" x="166" y="108" text-anchor="end">PV → Batterie</text>
+      <text class="fd-label" x="166" y="124" text-anchor="end">min(B⁺, P)</text>
+      <text class="fd-label" x="328" y="122">PV direkt</text>
+      <text class="fd-label" x="474" y="108">Einspeisung</text>
+      <text class="fd-label" x="474" y="124">X</text>
+      <text class="fd-label" x="203" y="196" text-anchor="middle">Batterie → Haus</text>
+      <text class="fd-label" x="437" y="196" text-anchor="middle">Netz → Haus</text>
+      <text class="fd-label" x="320" y="274" text-anchor="middle">Netz → Batterie</text>
+      <g class="fd-node"><rect x="260" y="14" width="120" height="40" rx="8" /><text x="320" y="39" text-anchor="middle">PV-Anlage</text></g>
+      <g class="fd-node"><rect x="30" y="185" width="120" height="40" rx="8" /><text x="90" y="210" text-anchor="middle">Batterie</text></g>
+      <g class="fd-node"><rect x="260" y="185" width="120" height="40" rx="8" /><text x="320" y="210" text-anchor="middle">Haus</text></g>
+      <g class="fd-node"><rect x="490" y="185" width="120" height="40" rx="8" /><text x="550" y="210" text-anchor="middle">Netz</text></g>
+    </svg>
+  </figure>
+  <table class="formula-table">
+    <tr><th>PV → Batterie</th><td>\(\min(B^{+}_t,\, P_t)\)</td></tr>
+    <tr><th>Netz → Batterie</th><td>\(B^{+}_t - \min(B^{+}_t,\, P_t)\)</td></tr>
+    <tr><th>PV direkt</th><td>\(\max\big(P_t - X_t - \min(B^{+}_t,\, P_t),\; 0\big)\)</td></tr>
+    <tr><th>Batterie → Haus</th><td>\(B^{-}_t\)</td></tr>
+    <tr><th>Netz → Haus \(H_t\)</th><td>\(\max\big(I_t - (\text{Netz} \to \text{Batterie}),\; 0\big)\)</td></tr>
+    <tr><th>Einspeisung</th><td>\(X_t\)</td></tr>
+  </table>
+  <p>
+    <em>Eigenversorgung</em> ist PV direkt plus Batterie → Haus. Abgerechnet wird der ganze Netzbezug \(I_t\), also
+    Netz → Haus und Netz → Batterie.
+  </p>
+</section>
+
+<section class="card method">
+  <h2>4. Grössere Batterie</h2>
+  <p>
+    Ist die gewählte Grösse \(K\) grösser als die reale Batterie \(K_0\), wird die Zusatzkapazität
+    \(K_z = K - K_0\) als Erweiterung der realen Batterie simuliert. Sie kann nur nutzen, was die reale Batterie nicht
+    nutzen konnte:
+  </p>
+  <ul>
+    <li><strong>Laden</strong> nur aus Überschuss, der eingespeist wurde, während die reale Batterie voll war, also
+      bei \(s_t \ge s_{\text{voll}}\) mit \(s_{\text{voll}} =\) <span data-param="fullSoc">97</span>&nbsp;%.</li>
+    <li><strong>Entladen</strong> nur für Netzbezug des Hauses, während die reale Batterie leer war, also bei
+      \(s_t \le s_{\text{leer}}\) mit \(s_{\text{leer}} =\) <span data-param="emptySoc">5</span>&nbsp;%.</li>
+  </ul>
+  <p>
+    Ihr Inhalt \(e_t\) (kWh) startet leer und bleibt zwischen den Grenzen, die sich aus SOC min und SOC max der
+    Zusatzkapazität ergeben (Vorgabe <span data-param="socMin">0</span>&nbsp;% und
+    <span data-param="socMax">100</span>&nbsp;%):
+  </p>
+  <div class="formula">\[ e_{\min} = K_z \cdot \frac{s_{\min}}{100}, \qquad e_{\max} = K_z \cdot \frac{s_{\max}}{100}, \qquad e_0 = e_{\min} \]</div>
+  <h3>Laden (wenn \(X_t > 0\) und \(s_t \ge s_{\text{voll}}\))</h3>
+  <div class="formula">\[ z^{+}_t = \min\!\left(X_t,\;\; P^{+}_{\max} - B^{+}_t,\;\; \frac{e_{\max} - e_{t-1}}{\eta_{c}\, \Delta t}\right), \qquad e_t = e_{t-1} + \eta_{c}\, z^{+}_t\, \Delta t \]</div>
+  <h3>Entladen (wenn \(I_t > 0\) und \(s_t \le s_{\text{leer}}\))</h3>
+  <div class="formula">\[ d_t = \max\big(L_t - P_t - B^{-}_t,\; 0\big) \]</div>
+  <div class="formula">\[ z^{-}_t = \min\!\left(d_t,\;\; I_t,\;\; P^{-}_{\max} - B^{-}_t,\;\; \frac{(e_{t-1} - e_{\min})\, \eta_{d}}{\Delta t}\right), \qquad e_t = e_{t-1} - \frac{z^{-}_t\, \Delta t}{\eta_{d}} \]</div>
+  <p>
+    In allen anderen Intervallen bleibt \(e_t = e_{t-1}\). Jeder Term im Minimum zählt höchstens bis 0 hinunter: Nutzt
+    die reale Batterie die maximale Leistung schon aus, kann die Zusatzkapazität nichts mehr beitragen.
+  </p>
+  <dl class="symbols">
+    <dt>\(z^{+}_t,\ z^{-}_t\)</dt><dd>Laden und Entladen der Zusatzkapazität</dd>
+    <dt>\(d_t\)</dt><dd>Bedarf des Hauses, den weder PV noch reale Batterie gedeckt haben</dd>
+    <dt>\(P^{+}_{\max},\ P^{-}_{\max}\)</dt><dd>maximale Lade- und Entladeleistung von realer Batterie und
+      Zusatzkapazität zusammen, in Stufen nach der Gesamtgrösse \(K\): Jede Stufe gilt ab ihrer Grösse bis zur
+      nächsten (einstellbar in der Ansicht «Daten» unter «Leistung»; Vorgabe als Beispielwerte
+      <span data-param="powerSteps">5&nbsp;kW ab 0&nbsp;kWh, 10&nbsp;kW ab 15&nbsp;kWh</span>), im Beispiel unten
+      <span data-param="samplePower">5</span>&nbsp;kW für <span data-param="sampleLarger">12</span>&nbsp;kWh</dd>
+    <dt>\(\eta\)</dt><dd>Roundtrip-Wirkungsgrad (Vorgabe <span data-param="efficiency">81</span>&nbsp;%), aufgeteilt in
+      \(\eta_c =\) <span data-param="chargeEfficiency">100</span>&nbsp;% beim Laden und \(\eta_d = \eta / \eta_c\)
+      beim Entladen: Die Verluste werden beim Entladen verrechnet</dd>
+  </dl>
+  <p>
+    Im Szenario sinkt die Einspeisung um \(z^{+}_t\) und der Netzbezug des Hauses um \(z^{-}_t\) (höchstens um den
+    Netzbezug, der tatsächlich stattfand).
+  </p>
+  <div class="chart" id="method-larger"></div>
+  <p class="chart-caption">
+    Beispiel mit <span data-param="sampleLarger">15</span>&nbsp;kWh statt <span data-param="sampleReal">10</span>&nbsp;kWh:
+    Die Zusatzkapazität lädt erst, wenn die reale Batterie am Mittag voll ist, und gibt die Energie in der Nacht ab,
+    nachdem die reale Batterie leer ist.
+  </p>
+</section>
+
+<section class="card method">
+  <h2>5. Kleinere Batterie</h2>
+  <p>
+    Ist \(K\) kleiner als \(K_0\) (bis 0 = keine Batterie), wird keine eigene Steuerung simuliert. Die kleinere
+    Batterie folgt dem gemessenen Ladezustand der realen und weicht nur ab, wenn sie voll oder leer ist. Aus dem
+    Ladezustand ergibt sich der Inhalt der realen Batterie, und die <em>Lücke</em> \(g_t\) ist der Unterschied zur
+    kleineren:
+  </p>
+  <div class="formula">\[ E_t = \frac{s_t}{100} \cdot K_0, \qquad g_t = \min\big(\max(g_{t-1},\; E_t - K),\; E_t\big), \qquad g_0 = \max(E_0 - K,\, 0) \]</div>
+  <p>
+    Der Inhalt der kleineren Batterie ist \(E_t - g_t\). Die Lücke wächst, wenn die reale Batterie mehr enthält, als
+    die kleinere fassen kann (sie ist voll), und schrumpft, wenn die reale weiter entlädt, die kleinere aber schon leer
+    ist. Damit aus Änderungen des Inhalts wieder Energie auf der AC-Seite wird, werden pro Tag Umrechnungsfaktoren
+    gemessen:
+  </p>
+  <div class="formula">\[ a^{\uparrow} = \frac{\sum B^{+}_t\, \Delta t}{\sum \Delta E_t} \ \ \text{(Intervalle mit } \Delta E_t > 0\text{)}, \qquad a^{\downarrow} = \frac{\sum B^{-}_t\, \Delta t}{\sum |\Delta E_t|} \ \ \text{(Intervalle mit } \Delta E_t < 0\text{)} \]</div>
+  <p>Daraus folgt, was die kleinere Batterie in jedem Intervall nicht laden bzw. nicht liefern kann:</p>
+  <div class="formula">\[ m^{+}_t = \begin{cases} \max(\Delta g_t,\, 0)\, a^{\uparrow} / \Delta t & \text{wenn } \Delta E_t > 0 \\ B^{+}_t \cdot (1 - K/K_0) & \text{sonst} \end{cases} \qquad m^{-}_t = \begin{cases} \max(-\Delta g_t,\, 0)\, a^{\downarrow} / \Delta t & \text{wenn } \Delta E_t < 0 \\ B^{-}_t \cdot (1 - K/K_0) & \text{sonst} \end{cases} \]</div>
+  <p>
+    Der Fall «sonst» deckt Intervalle ab, in denen der Ladezustand sich nicht in diese Richtung bewegt
+    (Nachladen bei voller Batterie, Standby-Verbrauch, Sprünge in 1-%-Schritten): Dort fehlt der Anteil, der der
+    fehlenden Kapazität entspricht. Was nicht geladen werden kann, wird eingespeist, oder, falls es aus dem Netz kam,
+    gar nicht erst bezogen; was nicht geliefert werden kann, kommt aus dem Netz:
+  </p>
+  <div class="formula">\[ \pi_t = \frac{\min(B^{+}_t,\, P_t)}{B^{+}_t}, \qquad \text{zus. Einspeisung} = m^{+}_t\, \pi_t, \qquad \text{entfallene Netzladung } n_t = m^{+}_t\, (1 - \pi_t), \qquad \text{zus. Netzbezug} = m^{-}_t \]</div>
+  <p>
+    Das Verfahren ist bei 0&nbsp;kWh und bei der realen Grösse exakt, und weil die Faktoren jeden Tag neu bestimmt
+    werden, kann es über lange Zeiträume nicht wegdriften. Sprünge im Ladezustand (Neukalibrierung der Batterie) werden
+    so ebenfalls aufgefangen.
+  </p>
+  <div class="chart" id="method-smaller"></div>
+  <p class="chart-caption">
+    Beispiel mit <span data-param="sampleSmaller">5</span>&nbsp;kWh statt <span data-param="sampleReal">10</span>&nbsp;kWh:
+    Die rote Fläche ist die Lücke \(g_t\). Über Mittag ist die kleinere Batterie voll (zusätzliche Einspeisung), am
+    Abend des ersten Tages leer, während die reale noch bis kurz vor Mitternacht liefert (zusätzlicher Netzbezug).
+  </p>
+</section>
+
+<section class="card method">
+  <h2>6. Kosten und Ersparnis</h2>
+  <p>
+    Der Tarif besteht aus Perioden mit einem Von- und einem Bis-Datum (Einstellungen in der Ansicht «Daten»). Jede
+    Periode hat je einen Preis für Bezug und Einspeisung im Hochtarif (HT) und im Niedertarif (NT) in CHF/kWh, eine
+    monatliche Grundgebühr und die Hochtarif-Zeiten, getrennt für Montag–Freitag, Samstag und Sonntag (Vorgabe:
+    <span data-param="htTimes">Mo–Fr 07–20&nbsp;Uhr, Sa 07–13&nbsp;Uhr</span>; Feiertage zählen wie gewöhnliche
+    Wochentage); sonst gilt Niedertarif. Massgebend ist der Beginn des Intervalls. Ein Tag ausserhalb aller Perioden
+    erhält die Preise der nächstgelegenen, bei überschneidenden Perioden gilt die später beginnende. Jedes Intervall
+    erhält so die Preise \(p^{I}_t\) (Bezug) und \(p^{X}_t\) (Einspeisung) in CHF/kWh, und die Grundgebühr \(F\)
+    (CHF pro Monat) seiner Periode wird gleichmässig auf die Intervalle des Monats verteilt:
+  </p>
+  <div class="formula">\[ f_t = F \cdot \frac{\Delta t}{24\ \text{h} \cdot T_{\text{Monat}}} \qquad (T_{\text{Monat}} = \text{Anzahl Tage des Monats}) \]</div>
+  <div class="chart" id="method-tariff"></div>
+  <p class="chart-caption">Eine Woche mit den Beispielpreisen: Bezugs- und Einspeisepreis wechseln zwischen HT und NT.</p>
+  <h3>Reale Anlage</h3>
+  <div class="formula">\[ \text{Stromkosten netto} = \sum_t \big( I_t\, p^{I}_t - X_t\, p^{X}_t \big)\, \Delta t \;+\; \sum_t f_t \]</div>
+  <h3>Ersparnis einer anderen Batteriegrösse</h3>
+  <div class="formula">\[ \text{Ersparnis} = \sum_t \Big[ \big( \min(z^{-}_t,\, H_t) - n_t \big)\, p^{I}_t \;-\; z^{+}_t\, p^{X}_t \Big]\, \Delta t \]</div>
+  <p>
+    Der erste Teil sind die vermiedenen Bezugskosten, der zweite die entgangene Einspeisevergütung. Bei einer kleineren
+    Batterie sind \(z^{+}_t = -m^{+}_t \pi_t\) und \(z^{-}_t = -m^{-}_t\) negativ und \(n_t\) gilt als entfallene
+    Netzladung; die Ersparnis wird dann negativ, also zu Mehrkosten. Bei einer grösseren Batterie ist \(n_t = 0\).
+  </p>
+  <h3>Ersparnis durch die reale Batterie</h3>
+  <div class="formula">\[ \text{Ersparnis}_{\text{Ist}} = \sum_t \Big[ B^{-}_t\, p^{I}_t \;-\; \min(B^{+}_t,\, P_t)\, p^{X}_t \;-\; \big(B^{+}_t - \min(B^{+}_t,\, P_t)\big)\, p^{I}_t \Big]\, \Delta t \]</div>
+  <p>
+    Entladene Energie ist so viel wert wie der Bezug, den sie ersetzt. Laden kostet die Einspeisevergütung, auf die
+    verzichtet wurde, oder bei Netzladung den Bezugspreis. Die Grundgebühr zählt nur zu den Stromkosten netto, nicht zur
+    Ersparnis.
+  </p>
+</section>
+
+<section class="card method">
+  <h2>7. Kennzahlen und Grössenvergleich</h2>
+  <p>Alle Kennzahlen werden über die Intervalle des gewählten Zeitraums summiert:</p>
+  <div class="formula">\[ \text{Autarkie} = \frac{\sum (L_t - H_t)}{\sum L_t}, \qquad \text{Eigenverbrauch} = \frac{\sum (P_t - X_t)}{\sum P_t} \]</div>
+  <p>
+    Für das Szenario werden \(H_t\) und \(X_t\) durch \(H_t - z^{-}_t\) und \(X_t - z^{+}_t\) ersetzt. Für den
+    Grössenvergleich wird die Simulation für jede Grösse von 0 bis 40&nbsp;kWh in Schritten von 1&nbsp;kWh einmal
+    durchgerechnet (41 Simulationen, im Hintergrund und pro Tag summiert, sodass jeder Zeitraum schnell
+    zusammengezählt ist). Gezeigt werden der vermiedene Netzbezug \(\sum z^{-}_t \Delta t\) (negativ bei kleineren
+    Batterien), die Ersparnis und die Autarkie.
+  </p>
+  <div class="chart" id="method-curve"></div>
+  <p class="chart-caption">
+    Grössenvergleich für die zwei Beispieltage: Unter der realen Grösse fehlt Eigenversorgung, darüber wächst der
+    Nutzen, bis der nächtliche Bedarf gedeckt ist.
+  </p>
+</section>
+
+<section class="card method">
+  <h2>8. Batterie-Zustand</h2>
+  <p>
+    Die Ansicht «Batterie-Zustand» wertet nur die reale Batterie aus. Der <strong>Roundtrip-Wirkungsgrad pro
+    Tag</strong> vergleicht die Energie auf der AC-Seite mit der Änderung des Inhalts \(E_t\) (aus dem Ladezustand),
+    getrennt nach Intervallen mit steigendem und fallendem Ladezustand:
+  </p>
+  <div class="formula">\[ \eta^{\text{Laden}} = \frac{\sum \Delta E_t}{\sum B^{+}_t\, \Delta t} = \frac{1}{a^{\uparrow}}, \qquad \eta^{\text{Entladen}} = \frac{\sum B^{-}_t\, \Delta t}{\sum |\Delta E_t|} = a^{\downarrow}, \qquad \eta^{\text{Roundtrip}} = \eta^{\text{Laden}} \cdot \eta^{\text{Entladen}} \]</div>
+  <p>
+    Tage mit weniger als 2&nbsp;kWh Ladung oder Entladung werden weggelassen. Die Linien sind 30-Tage-Mittel, gewichtet
+    nach Energie (Summen über 30 Tage statt Mittel der Tageswerte).
+  </p>
+  <p>
+    Die <strong>Kapazität pro Vollzyklus</strong> misst die nutzbare Energie direkt: Ein Ladezyklus führt von höchstens
+    5&nbsp;% auf mindestens 99&nbsp;% innert 12&nbsp;Stunden, ein Entladezyklus zurück innert 24&nbsp;Stunden. Der
+    Ladezustand muss sich dabei in eine Richtung bewegen (3&nbsp;% Toleranz), und in Gegenrichtung dürfen höchstens
+    0.2&nbsp;kWh fliessen. Die Energie wird auf einen vollen Zyklus hochgerechnet:
+  </p>
+  <div class="formula">\[ \text{kWh pro Vollzyklus} = \frac{\sum B^{\pm}_t\, \Delta t}{|s_{\text{Ende}} - s_{\text{Start}}|} \cdot 100 \]</div>
+  <p>
+    Laden enthält die Ladeverluste, Entladen die Entladeverluste. Die Linien sind 60-Tage-Mediane; ein Absinken über die
+    Zeit zeigt Kapazitätsverlust.
+  </p>
+</section>
+
+<section class="card method">
+  <h2>9. Grenzen des Modells</h2>
+  <ul>
+    <li><strong>15-Minuten-Mittelwerte:</strong> Kurze Spitzen über der maximalen Leistung und kurzes gleichzeitiges
+      Laden und Entladen gehen im Mittelwert unter.</li>
+    <li><strong>Gleiches Verhalten:</strong> Verbrauch und Produktion bleiben, wie gemessen. Eine andere Batterie
+      ändert in der Simulation nicht, wann Geräte laufen oder das Auto lädt.</li>
+    <li><strong>Keine eigene Strategie der Zusatzkapazität:</strong> Sie lädt nicht aus dem Netz und optimiert nicht
+      nach Tarif; sie nutzt nur Überschüsse und Bedarf, die die reale Batterie nicht abdecken konnte.</li>
+    <li><strong>Konstanter Wirkungsgrad, keine Alterung:</strong> Temperatur, Teillast und Kapazitätsverlust werden in
+      der Simulation nicht berücksichtigt.</li>
+    <li><strong>Kleinere Batterie als Näherung:</strong> Sie folgt dem gemessenen Ladezustand; ein wirklich kleinerer
+      Speicher hätte sich zum Teil anders verhalten.</li>
+    <li><strong>Tarife:</strong> Feste HT/NT-Preise pro Periode, ein Hochtarif-Zeitfenster pro Tagestyp, Feiertage
+      wie gewöhnliche Wochentage, keine dynamischen Tarife.</li>
+    <li><strong>Datenlücken:</strong> Fehlende Werte zählen als 0, der Ladezustand wird fortgeschrieben.</li>
+  </ul>
+</section>
